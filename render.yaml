@@ -1,0 +1,20 @@
+# render.yaml — Render Blueprint
+# On Render: "New" → "Blueprint" → point to this file (or to a GitHub repo that has it).
+# It will create a Web Service with the right Docker build, health check, and env var placeholders.
+#
+# You MUST set OPENAI_API_KEY in the Render dashboard after the first deploy
+# (or set it as a secret in the Render UI before clicking Apply).
+
+services:
+  - type: web
+    name: ai-youtube-transcriber
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false  # you set this manually in the Render dashboard
+      - key: PYTHONUNBUFFERED
+        value: "1"
