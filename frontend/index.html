@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI YouTube Transcriber — Whisper-Powered, Any Language</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎙️%3C/text%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">🎙️</div>
+        <div>
+          <div class="brand-title">AI YouTube Transcriber</div>
+          <div class="brand-sub">Whisper · any language · noisy audio ready</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="lang-badge" class="badge hidden"></span>
+        <a class="ghost-link" href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noreferrer">powered by Whisper + yt-dlp</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Banner: shown when this is the static preview and no backend is running -->
+      <div id="offline-banner" class="banner hidden">
+        <div>
+          <strong>Static preview mode</strong> — the backend isn't connected from this URL, so live transcription is disabled.
+          <br />
+          To run the full app locally: <code>cd youtube-transcriber &amp;&amp; cp backend/.env.example backend/.env</code>
+          (paste your <code>OPENAI_API_KEY</code>) then <code>./start.sh</code> and open <code>http://localhost:8000</code>.
+        </div>
+        <button type="button" id="load-demo-btn" class="ghost">Load demo data</button>
+      </div>
+
+      <!-- Step 1: URL -->
+      <section class="card" id="step-url">
+        <div class="step-head">
+          <span class="step-num">1</span>
+          <h2>Paste a YouTube link</h2>
+        </div>
+        <form id="url-form" class="url-form" autocomplete="off">
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=…"
+            required
+          />
+          <button type="submit" id="fetch-btn">
+            <span class="btn-label">Fetch video</span>
+            <span class="btn-spinner hidden"></span>
+          </button>
+        </form>
+        <p class="hint">
+          Works with watch links, youtu.be short links, and Shorts. We do not store your videos.
+        </p>
+      </section>
+
+      <!-- Step 2: Info + timeline -->
+      <section class="card hidden" id="step-info">
+        <div class="step-head">
+          <span class="step-num">2</span>
+          <h2>Pick a timeline</h2>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-thumb">
+            <img id="info-thumbnail" alt="" />
+          </div>
+          <div class="info-meta">
+            <div id="info-title" class="info-title">…</div>
+            <div class="info-row">
+              <span class="info-channel" id="info-channel">…</span>
+              <span class="dot">·</span>
+              <span class="info-duration" id="info-duration">…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="range-wrap">
+          <div class="range-readout">
+            <span id="range-from">00:00</span>
+            <span class="range-arrow">→</span>
+            <span id="range-to">00:00</span>
+            <span class="range-total" id="range-total">(0s selected)</span>
+          </div>
+          <div class="dual-range">
+            <div class="track"></div>
+            <div class="track-fill" id="track-fill"></div>
+            <input type="range" id="range-start" min="0" max="0" value="0" step="1" />
+            <input type="range" id="range-end" min="0" max="0" value="0" step="1" />
+          </div>
+          <div class="range-presets">
+            <button type="button" data-preset="full">Full video</button>
+            <button type="button" data-preset="first60">First 1 min</button>
+            <button type="button" data-preset="last60">Last 1 min</button>
+            <button type="button" data-preset="first300">First 5 min</button>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary>Advanced options</summary>
+          <div class="advanced-grid">
+            <label>
+              Language hint (optional)
+              <select id="lang-hint">
+                <option value="">Auto-detect</option>
+                <option value="en">English</option>
+                <option value="bn">Bangla (বাংলা)</option>
+                <option value="hi">Hindi</option>
+                <option value="ur">Urdu</option>
+                <option value="ar">Arabic</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="tr">Turkish</option>
+                <option value="id">Indonesian</option>
+                <option value="vi">Vietnamese</option>
+              </select>
+            </label>
+            <label class="span2">
+              Context prompt (optional — names, jargon, etc.)
+              <input id="ctx-prompt" type="text" placeholder="e.g. speaker often says 'vector database', 'RAG'" />
+            </label>
+          </div>
+        </details>
+
+        <button id="transcribe-btn" class="primary big">
+          <span class="btn-label">Transcribe selection</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+      </section>
+
+      <!-- Step 3: Result -->
+      <section class="card hidden" id="step-result">
+        <div class="step-head">
+          <span class="step-num">3</span>
+          <h2>Result</h2>
+          <div class="result-actions">
+            <button id="refine-btn" class="ghost" title="Use AI to fix misheard words, punctuation, and capitalization without changing the meaning.">
+              ✨ Refine with AI
+            </button>
+            <button id="copy-btn" class="ghost">Copy</button>
+            <button id="download-txt-btn" class="ghost">Download .txt</button>
+            <button id="download-srt-btn" class="ghost">Download .srt</button>
+          </div>
+        </div>
+
+        <div class="result-meta" id="result-meta">
+          <span class="meta-pill" id="meta-lang">lang: …</span>
+          <span class="meta-pill" id="meta-elapsed">took …</span>
+          <span class="meta-pill" id="meta-range">range: …</span>
+        </div>
+
+        <div class="audio-row">
+          <div class="audio-label">Audio overview</div>
+          <audio id="audio-player" controls preload="metadata"></audio>
+        </div>
+
+        <div class="transcript-wrap">
+          <div class="transcript-toolbar">
+            <label class="checkbox">
+              <input type="checkbox" id="show-ts" checked /> Show timestamps
+            </label>
+            <span class="seg-count" id="seg-count">0 segments</span>
+          </div>
+          <div id="transcript" class="transcript"></div>
+        </div>
+      </section>
+
+      <!-- Progress / errors -->
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <footer class="foot">
+      <span>Drop a YouTube link → pick a slice → get an accurate transcript in any language.</span>
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
